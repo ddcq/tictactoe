@@ -2,7 +2,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Add this import
+import 'package:flutter/services.dart';
 import '../models/game_mode.dart';
 import '../services/ai_service.dart';
 import 'game_page.dart';
@@ -15,7 +15,8 @@ class GameModeSelectionPage extends StatefulWidget {
 }
 
 class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
-  final PageController _pageController = PageController(viewportFraction: 0.33);
+  // Augmenter légèrement le viewportFraction pour mieux voir les voisins
+  final PageController _pageController = PageController(viewportFraction: 0.35);
   int _currentIndex = 0;
   final FocusNode _focusNode = FocusNode();
 
@@ -24,6 +25,11 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
       label: 'Solo - Facile',
       mode: GameMode.playerVsAI,
       difficulty: Difficulty.easy,
+    ),
+    _GameModeCard(
+      label: 'Solo - Intermédiaire',
+      mode: GameMode.playerVsAI,
+      difficulty: Difficulty.medium,
     ),
     _GameModeCard(
       label: 'Solo - Difficile',
@@ -49,7 +55,9 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
 
   void _onCardTap(_GameModeCard card) {
     if (card.disabled || card.mode == null) return;
-    if (card.difficulty != null) AIService.difficulty = card.difficulty!;
+    if (card.difficulty != null) {
+      AIService.difficulty = card.difficulty!;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => GamePage(mode: card.mode!)),
@@ -59,15 +67,19 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
   void _handleKeyEvent(KeyEvent event) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        _pageController.previousPage(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        if (_currentIndex > 0) {
+          _pageController.previousPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
       } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        if (_currentIndex < _cards.length - 1) {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
       } else if (event.logicalKey == LogicalKeyboardKey.enter ||
           event.logicalKey == LogicalKeyboardKey.space) {
         _onCardTap(_cards[_currentIndex]);
@@ -89,10 +101,10 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 32),
                 SizedBox(
-                  height: constraints.maxHeight * 0.6,
+                  height: constraints.maxHeight * 0.7,
                   child: PageView.builder(
                     controller: _pageController,
                     onPageChanged: (index) =>
@@ -108,14 +120,37 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                     itemBuilder: (context, index) {
                       final card = _cards[index];
                       final isActive = index == _currentIndex;
+                      final double scale = isActive ? 1.3 : 1.0;
+
+                      // --- NOUVELLE LOGIQUE POUR LA MARGE ---
+                      final double cardWidth = constraints.maxWidth * _pageController.viewportFraction;
+                      final double widthIncrease = cardWidth * 0.3; // L'augmentation de taille de la carte active
+                      final double marginForNeighbor = widthIncrease / 2;
+
+                      EdgeInsets margin = const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 20,
+                      );
+
+                      // Si cette carte est le voisin de GAUCHE de la carte active
+                      if (index == _currentIndex - 1) {
+                        margin = margin.copyWith(right: margin.right + marginForNeighbor);
+                      }
+
+                      // Si cette carte est le voisin de DROITE de la carte active
+                      if (index == _currentIndex + 1) {
+                        margin = margin.copyWith(left: margin.left + marginForNeighbor);
+                      }
+                      // --- FIN DE LA NOUVELLE LOGIQUE ---
+
                       return GestureDetector(
                         onTap: () => _onCardTap(card),
                         child: AnimatedContainer(
+                          margin: margin, // Utilisation de la marge calculée
+                          transform: Matrix4.identity()..scale(scale),
+                          transformAlignment: Alignment.center,
                           duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 20,
-                          ),
+                          curve: Curves.easeInOut,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             image: DecorationImage(
@@ -134,9 +169,9 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                             boxShadow: [
                               if (isActive)
                                 BoxShadow(
-                                  color: Colors.black26,
-                                  offset: const Offset(0, 6),
-                                  blurRadius: 10,
+                                  color: Colors.black.withOpacity(0.3),
+                                  offset: const Offset(0, 8),
+                                  blurRadius: 12,
                                 ),
                             ],
                           ),
@@ -145,8 +180,8 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
+                                  horizontal: 12,
+                                  vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.6),
@@ -173,17 +208,21 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Glissez ou utilisez les flèches pour choisir un mode',
-                  style: TextStyle(color: Colors.grey.shade700),
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text(
+                    'Glissez ou utilisez les flèches pour choisir un mode',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
                 ),
-                const SizedBox(height: 32),
-                const Text(
-                  'v1.0 © TonStudio',
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 24.0),
+                  child: Text(
+                    'v1.0 © TonStudio',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
                 ),
-                const SizedBox(height: 12),
               ],
             );
           },
