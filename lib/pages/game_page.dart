@@ -1,6 +1,7 @@
 // pages/game_page.dart
 import 'package:flutter/material.dart';
 import '../models/game_mode.dart';
+import '../pages/victory_page.dart'; // Importer la nouvelle page
 import '../widgets/board_cell.dart';
 import '../services/ai_service.dart';
 
@@ -37,10 +38,35 @@ class _GamePageState extends State<GamePage> {
     for (var pattern in winPatterns) {
       final a = pattern[0], b = pattern[1], c = pattern[2];
       if (_board[a] != '' && _board[a] == _board[b] && _board[a] == _board[c]) {
+        final winningPlayer = _board[a];
+        
+        // On met à jour l'état pour afficher la ligne gagnante
         setState(() {
-          _winner = _board[a];
+          _winner = winningPlayer;
           _winningLine = List<int>.from(pattern);
         });
+
+        // Condition pour naviguer vers la page de victoire
+        bool shouldCelebrate = 
+            widget.mode == GameMode.playerVsPlayer || // Toujours en Pvp
+            (widget.mode == GameMode.playerVsAI && winningPlayer == 'X'); // Seulement si le joueur gagne contre l'IA
+
+        if (shouldCelebrate) {
+          // Délai pour que le joueur voie la ligne gagnante
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) { // Vérifier que le widget est toujours "monté"
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VictoryPage(
+                    winner: winningPlayer,
+                    gameMode: widget.mode,
+                  ),
+                ),
+              );
+            }
+          });
+        }
         return;
       }
     }
@@ -68,9 +94,13 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _playAIMove() async {
+    // Ne pas jouer si une navigation est déjà en cours ou si la partie est gagnée
+    if (_winner != null) return;
     await Future.delayed(const Duration(milliseconds: 500));
-    int move = AIService.chooseMove(_board);
-    if (move != -1) _playMove(move);
+    if (_winner == null) { // Double vérification
+      int move = AIService.chooseMove(_board);
+      if (move != -1) _playMove(move);
+    }
   }
 
   Widget _buildBoard() {
@@ -81,7 +111,7 @@ class _GamePageState extends State<GamePage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Colors.black12,
               blurRadius: 12,
@@ -90,6 +120,7 @@ class _GamePageState extends State<GamePage> {
           ],
         ),
         child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(), // Empêcher le scroll
           itemCount: 9,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -97,7 +128,7 @@ class _GamePageState extends State<GamePage> {
           itemBuilder: (_, index) => BoardCell(
             symbol: _board[index],
             onTap: () => _playMove(index),
-            showConfetti: _winningLine.contains(index),
+            isWinningCell: _winningLine.contains(index), // Modifié pour correspondre à BoardCell
           ),
         ),
       ),
@@ -127,7 +158,11 @@ class _GamePageState extends State<GamePage> {
           const SizedBox(height: 20),
           Text(
             _winner != null
-                ? (_winner == 'Égalité' ? "Match nul" : "$_winner a gagné !")
+                ? (_winner == 'Égalité' ? "Match nul" : (
+                  (widget.mode == GameMode.playerVsAI && _winner == 'O') 
+                    ? "L'IA a gagné !" 
+                    : "$_winner a gagné !"
+                  ))
                 : "Tour de $_currentPlayer",
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
@@ -148,4 +183,42 @@ class _GamePageState extends State<GamePage> {
       ),
     );
   }
-} 
+}
+
+// Assurez-vous que votre BoardCell accepte 'isWinningCell'
+// Voici un exemple pour `board_cell.dart` si vous devez le modifier
+class BoardCell extends StatelessWidget {
+  final String symbol;
+  final VoidCallback onTap;
+  final bool isWinningCell;
+
+  const BoardCell({
+    Key? key,
+    required this.symbol,
+    required this.onTap,
+    this.isWinningCell = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.blue.shade100, width: 2),
+          color: isWinningCell ? Colors.green.shade200 : null,
+        ),
+        child: Center(
+          child: Text(
+            symbol,
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: symbol == 'X' ? Colors.blue.shade800 : Colors.red.shade600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
