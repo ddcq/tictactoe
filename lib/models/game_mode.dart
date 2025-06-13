@@ -1,1 +1,1 @@
-enum GameMode { playerVsPlayer, playerVsAI }
+enum GameMode { playerVsPlayer, playerVsAI, evolving }

@@ -1,5 +1,6 @@
+// pages/game_page.dart
 import 'package:flutter/material.dart';
-import 'dart:math'; // NOUVEAU : Pour utiliser la fonction min()
+import 'dart:math';
 
 import '../models/game_mode.dart';
 import '../pages/victory_page.dart';
@@ -20,12 +21,26 @@ class _GamePageState extends State<GamePage> {
   String? _winner;
   List<int> _winningLine = <int>[];
 
+  final List<int> _movesX = [];
+  final List<int> _movesO = [];
+  static const int maxMovesPerPlayer = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.mode == GameMode.playerVsAI && _currentPlayer == 'O') {
+      _playAIMove();
+    }
+  }
+
   void _resetGame() {
     setState(() {
       _board = List.filled(9, '');
       _currentPlayer = 'X';
       _winner = null;
       _winningLine.clear();
+      _movesX.clear();
+      _movesO.clear();
     });
   }
 
@@ -37,27 +52,22 @@ class _GamePageState extends State<GamePage> {
     ];
 
     for (var pattern in winPatterns) {
-      final a = pattern[0], b = pattern[1], c = pattern[2];
-      if (_board[a] != '' && _board[a] == _board[b] && _board[a] == _board[c]) {
+      final a = pattern[0];
+      if (_board[a] != '' && _board[a] == _board[pattern[1]] && _board[a] == _board[pattern[2]]) {
         final winningPlayer = _board[a];
-
         setState(() {
           _winner = winningPlayer;
           _winningLine = List<int>.from(pattern);
         });
-
         bool shouldCelebrate =
-            widget.mode == GameMode.playerVsPlayer ||
-            (widget.mode == GameMode.playerVsAI && winningPlayer == 'X');
-
+            widget.mode != GameMode.playerVsAI || (widget.mode == GameMode.playerVsAI && winningPlayer == 'X');
         if (shouldCelebrate) {
           Future.delayed(const Duration(milliseconds: 800), () {
             if (mounted) {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      VictoryPage(winner: winningPlayer, gameMode: widget.mode),
+                  builder: (_) => VictoryPage(winner: winningPlayer, gameMode: widget.mode),
                 ),
               );
             }
@@ -67,7 +77,10 @@ class _GamePageState extends State<GamePage> {
       }
     }
 
-    if (!_board.contains('')) {
+    // =======================================================================
+    // CORRECTION FINALE : Le match nul n'existe pas en mode Évolutif
+    // =======================================================================
+    if (widget.mode != GameMode.evolving && !_board.contains('')) {
       setState(() {
         _winner = 'Égalité';
         _winningLine.clear();
@@ -78,11 +91,35 @@ class _GamePageState extends State<GamePage> {
   void _playMove(int index) {
     if (_board[index] != '' || _winner != null) return;
 
-    setState(() => _board[index] = _currentPlayer);
+    final movingPlayer = _currentPlayer;
+
+    setState(() {
+      _board[index] = movingPlayer;
+      if (widget.mode == GameMode.evolving) {
+        (movingPlayer == 'X' ? _movesX : _movesO).add(index);
+      }
+    });
+
     _checkWinner();
 
     if (_winner == null) {
-      setState(() => _currentPlayer = _currentPlayer == 'X' ? 'O' : 'X');
+      int? oldestMoveIndexToClear;
+      if (widget.mode == GameMode.evolving) {
+        final playerMoves = (movingPlayer == 'X' ? _movesX : _movesO);
+        if (playerMoves.length > maxMovesPerPlayer) {
+          oldestMoveIndexToClear = playerMoves.removeAt(0);
+        }
+      }
+
+      final nextPlayer = (movingPlayer == 'X' ? 'O' : 'X');
+
+      setState(() {
+        if (oldestMoveIndexToClear != null) {
+          _board[oldestMoveIndexToClear] = '';
+        }
+        _currentPlayer = nextPlayer;
+      });
+
       if (widget.mode == GameMode.playerVsAI && _currentPlayer == 'O') {
         _playAIMove();
       }
@@ -90,7 +127,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   void _playAIMove() async {
-    if (_winner != null) return;
+    if (_winner != null || widget.mode == GameMode.evolving) return;
     await Future.delayed(const Duration(milliseconds: 500));
     if (_winner == null) {
       int move = AIService.chooseMove(_board);
@@ -98,10 +135,8 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
-  // MODIFIÉ : La méthode prend maintenant la taille en argument
   Widget _buildBoard(double size) {
-    // MODIFIÉ : On utilise un SizedBox pour contraindre la taille de la grille
-    return SizedBox(
+     return SizedBox(
       width: size,
       height: size,
       child: Container(
@@ -134,39 +169,23 @@ class _GamePageState extends State<GamePage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.mode == GameMode.playerVsAI && _currentPlayer == 'O') {
-      _playAIMove();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+     return Scaffold(
       backgroundColor: const Color(0xFFE6F0FA),
       appBar: AppBar(
-        title: const Text('Tic Tac Toe'),
+        title: Text(widget.mode == GameMode.evolving ? 'Tic Tac Toe - Évolutif' : 'Tic Tac Toe'),
         backgroundColor: Colors.blue.shade700,
       ),
-      // NOUVEAU : On utilise LayoutBuilder pour obtenir les contraintes de l'espace parent
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // On calcule la taille de la grille. Ce sera la plus petite dimension
-          // (largeur ou hauteur) de l'espace disponible, moins un peu de marge.
-          final boardSize = min(constraints.maxWidth, constraints.maxHeight - 140) - 40;
-
-          // NOUVEAU : On enveloppe la Column dans un SingleChildScrollView
-          // pour éviter tout dépassement sur les écrans très petits/étroits.
+          final boardSize = min(constraints.maxWidth, constraints.maxHeight) - 40;
           return SingleChildScrollView(
             child: ConstrainedBox(
-              // Assure que la zone scrollable prend au moins la hauteur de l'écran
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // MODIFIÉ : On passe la taille calculée à la méthode _buildBoard
                     _buildBoard(boardSize),
                     const SizedBox(height: 20),
                     Text(

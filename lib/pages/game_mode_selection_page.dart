@@ -15,11 +15,11 @@ class GameModeSelectionPage extends StatefulWidget {
 }
 
 class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
-  // Augmenter légèrement le viewportFraction pour mieux voir les voisins
   final PageController _pageController = PageController(viewportFraction: 0.35);
   int _currentIndex = 0;
   final FocusNode _focusNode = FocusNode();
 
+  // MODIFIÉ : Ajout du nouveau mode de jeu dans la liste
   final List<_GameModeCard> _cards = [
     _GameModeCard(
       label: 'Solo - Facile',
@@ -37,6 +37,7 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
       difficulty: Difficulty.hard,
     ),
     _GameModeCard(label: 'Deux joueurs', mode: GameMode.playerVsPlayer),
+    _GameModeCard(label: 'Mode Évolutif', mode: GameMode.evolving),
     _GameModeCard(label: 'En ligne', mode: null, disabled: true),
   ];
 
@@ -55,7 +56,8 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
 
   void _onCardTap(_GameModeCard card) {
     if (card.disabled || card.mode == null) return;
-    if (card.difficulty != null) {
+    // La difficulté n'est pertinente que pour le mode Joueur vs IA
+    if (card.mode == GameMode.playerVsAI && card.difficulty != null) {
       AIService.difficulty = card.difficulty!;
     }
     Navigator.push(
@@ -122,9 +124,8 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                       final isActive = index == _currentIndex;
                       final double scale = isActive ? 1.3 : 1.0;
 
-                      // --- NOUVELLE LOGIQUE POUR LA MARGE ---
                       final double cardWidth = constraints.maxWidth * _pageController.viewportFraction;
-                      final double widthIncrease = cardWidth * 0.3; // L'augmentation de taille de la carte active
+                      final double widthIncrease = cardWidth * 0.3;
                       final double marginForNeighbor = widthIncrease / 2;
 
                       EdgeInsets margin = const EdgeInsets.symmetric(
@@ -132,21 +133,18 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                         vertical: 20,
                       );
 
-                      // Si cette carte est le voisin de GAUCHE de la carte active
                       if (index == _currentIndex - 1) {
                         margin = margin.copyWith(right: margin.right + marginForNeighbor);
                       }
 
-                      // Si cette carte est le voisin de DROITE de la carte active
                       if (index == _currentIndex + 1) {
                         margin = margin.copyWith(left: margin.left + marginForNeighbor);
                       }
-                      // --- FIN DE LA NOUVELLE LOGIQUE ---
 
                       return GestureDetector(
                         onTap: () => _onCardTap(card),
                         child: AnimatedContainer(
-                          margin: margin, // Utilisation de la marge calculée
+                          margin: margin,
                           transform: Matrix4.identity()..scale(scale),
                           transformAlignment: Alignment.center,
                           duration: const Duration(milliseconds: 300),
@@ -154,6 +152,7 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             image: DecorationImage(
+                              // Le nom du fichier image est généré dynamiquement à partir du label
                               image: AssetImage(
                                 'assets/images/bg_${card.label.toLowerCase().replaceAll(' ', '_').replaceAll('-', '').replaceAll('é', 'e')}.jpg',
                               ),
