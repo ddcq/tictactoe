@@ -7,6 +7,27 @@ import '../pages/victory_page.dart';
 import '../widgets/board_cell.dart';
 import '../services/ai_service.dart';
 
+class BoardPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.blueGrey.shade300
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round;
+
+    // Lignes verticales
+    canvas.drawLine(Offset(size.width / 3, 0), Offset(size.width / 3, size.height), paint);
+    canvas.drawLine(Offset(size.width * 2 / 3, 0), Offset(size.width * 2 / 3, size.height), paint);
+
+    // Lignes horizontales
+    canvas.drawLine(Offset(0, size.height / 3), Offset(size.width, size.height / 3), paint);
+    canvas.drawLine(Offset(0, size.height * 2 / 3), Offset(size.width, size.height * 2 / 3), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class GamePage extends StatefulWidget {
   final GameMode mode;
   const GamePage({super.key, required this.mode});
@@ -136,89 +157,160 @@ class _GamePageState extends State<GamePage> {
   }
 
   Widget _buildBoard(double size) {
-     return SizedBox(
+    return SizedBox(
       width: size,
       height: size,
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 12,
-              offset: Offset(0, 6),
+      child: Stack(
+        children: [
+          CustomPaint(
+            size: Size.infinite,
+            painter: BoardPainter(),
+          ),
+          GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 9,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
             ),
-          ],
-        ),
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 9,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
+            itemBuilder: (_, index) {
+              final symbol = _board[index];
+              final isWinning = _winningLine.contains(index);
+
+              // ==========================================================
+              // CORRECTION
+              // ==========================================================
+              return GestureDetector(
+                onTap: () => _playMove(index),
+                // CETTE LIGNE EST LA CORRECTION : Elle rend la zone cliquable
+                behavior: HitTestBehavior.opaque,
+                child: Center(
+                  child: AnimatedScale(
+                    scale: symbol.isEmpty ? 0 : 1,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutBack,
+                    child: Text(
+                      symbol,
+                      style: TextStyle(
+                        fontSize: size / 5,
+                        fontWeight: FontWeight.bold,
+                        color: symbol == 'X' 
+                          ? const Color(0xFFFFC107)
+                          : const Color(0xFFE0F7FA),
+                        shadows: [
+                          if (isWinning)
+                            const Shadow(
+                              blurRadius: 20.0,
+                              color: Colors.white,
+                              offset: Offset(0, 0),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              // ==========================================================
+              // FIN DE LA CORRECTION
+              // ==========================================================
+            },
           ),
-          itemBuilder: (_, index) => BoardCell(
-            symbol: _board[index],
-            onTap: () => _playMove(index),
-            isWinningCell: _winningLine.contains(index),
-          ),
-        ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-     return Scaffold(
-      backgroundColor: const Color(0xFFE6F0FA),
-      appBar: AppBar(
-        title: Text(widget.mode == GameMode.evolving ? 'Tic Tac Toe - Évolutif' : 'Tic Tac Toe'),
-        backgroundColor: Colors.blue.shade700,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final boardSize = min(constraints.maxWidth, constraints.maxHeight) - 40;
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildBoard(boardSize),
-                    const SizedBox(height: 20),
-                    Text(
-                      _winner != null
-                          ? (_winner == 'Égalité'
-                              ? "Match nul"
-                              : ((widget.mode == GameMode.playerVsAI && _winner == 'O')
-                                  ? "L'IA a gagné !"
-                                  : "$_winner a gagné !"))
-                          : "Tour de $_currentPlayer",
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _resetGame,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 32, vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Rejouer', style: TextStyle(fontSize: 18)),
-                    ),
-                  ],
+    // Utiliser la police fraîchement importée pour le titre
+    final textTheme = Theme.of(context).textTheme;
+
+    return Scaffold(
+      // Fini le fond uni, place à un dégradé subtil
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF4A6C9B), // Un bleu profond
+              Color(0xFF2E4C6D), // Un bleu encore plus sombre
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Barre de titre personnalisée
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  widget.mode == GameMode.evolving ? 'Mode Évolutif' : 'Tic Tac Toe',
+                  style: textTheme.headlineMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
+
+              // Le plateau de jeu
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final boardSize = min(constraints.maxWidth, constraints.maxHeight) * 0.8;
+                  return _buildBoard(boardSize);
+                },
+              ),
+              
+              // Zone de statut et bouton
+              _buildStatusAndReset(context),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  // Widget pour la zone inférieure (statut + bouton)
+  Widget _buildStatusAndReset(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    String statusText;
+
+    if (_winner != null) {
+      if (_winner == 'Égalité') {
+        statusText = "Match nul";
+      } else if (widget.mode == GameMode.playerVsAI && _winner == 'O') {
+        statusText = "L'IA a gagné !";
+      } else {
+        statusText = "$_winner a gagné !";
+      }
+    } else {
+      statusText = "Tour de $_currentPlayer";
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          Text(
+            statusText,
+            style: textTheme.headlineSmall?.copyWith(color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          // Bouton rejouer avec un style plus moderne
+          ElevatedButton.icon(
+            icon: const Icon(Icons.refresh),
+            label: const Text('Rejouer'),
+            onPressed: _resetGame,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC107),
+              foregroundColor: const Color(0xFF2E4C6D),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+              textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
