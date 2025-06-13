@@ -3,76 +3,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:confetti/confetti.dart';
 
-class BoardCell extends StatelessWidget {
+// Assurez-vous que votre BoardCell accepte 'isWinningCell'
+// Voici un exemple pour `board_cell.dart` si vous devez le modifier
+class BoardCell extends StatefulWidget {
   final String symbol;
   final VoidCallback onTap;
-  final bool showConfetti;
+  final bool isWinningCell;
 
   const BoardCell({
-    super.key,
+    Key? key,
     required this.symbol,
     required this.onTap,
-    this.showConfetti = false,
-  });
+    this.isWinningCell = false,
+  }) : super(key: key);
+
+  @override
+  State<BoardCell> createState() => _BoardCellState();
+}
+
+class _BoardCellState extends State<BoardCell> {
+  bool _isTapped = false;
 
   @override
   Widget build(BuildContext context) {
-    Color bgColor = Colors.white;
-    Color symbolColor = symbol == 'X'
-        ? Colors.blue.shade700
-        : symbol == 'O'
-            ? Colors.red.shade600
-            : Colors.transparent;
-
-    final confettiController = ConfettiController(duration: const Duration(seconds: 1));
-    if (showConfetti) {
-      confettiController.play();
-    }
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap();
-          },
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
-            decoration: BoxDecoration(
-              color: bgColor,
-              border: Border.all(color: Colors.black26, width: 1),
-            ),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (child, animation) => ScaleTransition(
-                  scale: animation,
-                  child: child,
-                ),
-                child: Text(
-                  symbol,
-                  key: ValueKey<String>(symbol),
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: symbolColor,
-                  ),
-                ),
-              ),
+    return GestureDetector(
+      // Se déclenche quand le joueur appuie sur la case
+      onTapDown: (_) {
+        if (widget.symbol == '') {
+          setState(() => _isTapped = true);
+        }
+      },
+      // Se déclenche quand le joueur relâche la case
+      onTapUp: (_) {
+        if (widget.symbol == '') {
+          setState(() => _isTapped = false);
+        }
+      },
+      // Se déclenche si le geste est annulé (ex: doigt qui glisse hors de la case)
+      onTapCancel: () {
+        if (widget.symbol == '') {
+          setState(() => _isTapped = false);
+        }
+      },
+      // Exécute la logique du jeu
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        // Applique une transformation (échelle) si la case est pressée
+        transform: Matrix4.identity()..scale(_isTapped ? 0.9 : 1.0),
+        transformAlignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.blue.shade100, width: 2),
+          color: widget.isWinningCell ? Colors.green.shade200 : null,
+        ),
+        child: Center(
+          child: Text(
+            widget.symbol,
+            style: TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: widget.symbol == 'X' ? Colors.blue.shade800 : Colors.red.shade600,
             ),
           ),
         ),
-        if (showConfetti)
-          ConfettiWidget(
-            confettiController: confettiController,
-            blastDirectionality: BlastDirectionality.explosive,
-            shouldLoop: false,
-            emissionFrequency: 0.6,
-            numberOfParticles: 10,
-            gravity: 0.3,
-          ),
-      ],
+      ),
     );
   }
 }
