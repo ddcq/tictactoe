@@ -19,27 +19,43 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
   int _currentIndex = 0;
   final FocusNode _focusNode = FocusNode();
 
-  // MODIFIÉ : Ajout du nouveau mode de jeu dans la liste
   final List<_GameModeCard> _cards = [
     _GameModeCard(
-      label: 'Solo - Facile',
+      label: 'Facile',
+      imageName: 'bg_solo_facile.jpg',
       mode: GameMode.playerVsAI,
       difficulty: Difficulty.easy,
     ),
     _GameModeCard(
-      label: 'Solo - Intermédiaire',
+      label: 'Moyen',
+      imageName: 'bg_solo_intermediaire.jpg',
       mode: GameMode.playerVsAI,
       difficulty: Difficulty.medium,
     ),
     _GameModeCard(
-      label: 'Solo - Difficile',
+      label: 'Difficile',
+      imageName: 'bg_solo_difficile.jpg',
       mode: GameMode.playerVsAI,
       difficulty: Difficulty.hard,
     ),
-    _GameModeCard(label: 'Deux joueurs', mode: GameMode.playerVsPlayer),
-    _GameModeCard(label: 'Mode Évolutif', mode: GameMode.evolving),
-    _GameModeCard(label: 'En ligne', mode: null, disabled: true),
+    _GameModeCard(
+      label: 'Duo',
+      imageName: 'bg_deux_joueurs.jpg',
+      mode: GameMode.playerVsPlayer
+    ),
+    _GameModeCard(
+      label: 'Duo+',
+      imageName: 'bg_mode_evolutif.jpg',
+      mode: GameMode.evolving
+    ),
+    _GameModeCard(
+      label: 'En ligne',
+      imageName: 'bg_en_ligne.jpg',
+      mode: null, 
+      disabled: true
+    ),
   ];
+
 
   @override
   void initState() {
@@ -91,141 +107,197 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Récupère la carte actuellement active pour connaître l'image de fond
+    final activeCard = _cards[_currentIndex];
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE6F0FA),
-      appBar: AppBar(
-        title: const Text('Tic Tac Toe'),
-        backgroundColor: Colors.blue.shade600,
-      ),
-      body: KeyboardListener(
-        focusNode: _focusNode,
-        onKeyEvent: _handleKeyEvent,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  height: constraints.maxHeight * 0.7,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (index) =>
-                        setState(() => _currentIndex = index),
-                    itemCount: _cards.length,
-                    scrollBehavior: const ScrollBehavior().copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.trackpad,
-                      },
-                    ),
-                    itemBuilder: (context, index) {
-                      final card = _cards[index];
-                      final isActive = index == _currentIndex;
-                      final double scale = isActive ? 1.3 : 1.0;
+      // On retire la couleur de fond ici, car le Stack va la gérer
+      // backgroundColor: const Color(0xFFE6F0FA),
+      body: Stack(
+        // On utilise un Stack pour superposer les couches
+        children: [
+          // ===================================================================
+          // COUCHE 1 : L'image de fond animée
+          // ===================================================================
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: Image.asset(
+              // Utilise le getter de la carte active pour trouver l'image
+              activeCard.imagePath,
+              // Clé unique pour que AnimatedSwitcher détecte le changement d'image
+              key: ValueKey<String>(activeCard.imagePath),
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover,
+              // Gère les erreurs si une image n'est pas trouvée
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: const Color(0xFF2E4C6D),
+                ); // Une couleur de secours
+              },
+            ),
+          ),
 
-                      final double cardWidth = constraints.maxWidth * _pageController.viewportFraction;
-                      final double widthIncrease = cardWidth * 0.3;
-                      final double marginForNeighbor = widthIncrease / 2;
+          // ===================================================================
+          // COUCHE 2 : L'effet de flou
+          // ===================================================================
+          BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: 15.0,
+              sigmaY: 15.0,
+            ), // Force du flou
+            child: Container(
+              // Ajoute une légère teinte sombre pour améliorer la lisibilité du texte
+              color: Colors.black.withAlpha(51),
+            ),
+          ),
 
-                      EdgeInsets margin = const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 20,
-                      );
-
-                      if (index == _currentIndex - 1) {
-                        margin = margin.copyWith(right: margin.right + marginForNeighbor);
-                      }
-
-                      if (index == _currentIndex + 1) {
-                        margin = margin.copyWith(left: margin.left + marginForNeighbor);
-                      }
-
-                      return GestureDetector(
-                        onTap: () => _onCardTap(card),
-                        child: AnimatedContainer(
-                          margin: margin,
-                          transform: Matrix4.identity()..scale(scale),
-                          transformAlignment: Alignment.center,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            image: DecorationImage(
-                              // Le nom du fichier image est généré dynamiquement à partir du label
-                              image: AssetImage(
-                                'assets/images/bg_${card.label.toLowerCase().replaceAll(' ', '_').replaceAll('-', '').replaceAll('é', 'e')}.jpg',
-                              ),
-                              fit: BoxFit.cover,
-                              colorFilter: card.disabled
-                                  ? const ColorFilter.mode(
-                                      Colors.grey,
-                                      BlendMode.saturation,
-                                    )
-                                  : null,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              if (isActive)
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  offset: const Offset(0, 8),
-                                  blurRadius: 12,
-                                ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  card.label,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: isActive ? 20 : 16,
-                                    fontWeight: isActive
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+          // ===================================================================
+          // COUCHE 3 : Le contenu original de votre page
+          // ===================================================================
+          KeyboardListener(
+            focusNode: _focusNode,
+            onKeyEvent: _handleKeyEvent,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: constraints.maxHeight * 0.9,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        onPageChanged: (index) =>
+                            setState(() => _currentIndex = index),
+                        itemCount: _cards.length,
+                        scrollBehavior: const ScrollBehavior().copyWith(
+                          dragDevices: {
+                            PointerDeviceKind.touch,
+                            PointerDeviceKind.mouse,
+                            PointerDeviceKind.trackpad,
+                          },
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    'Glissez ou utilisez les flèches pour choisir un mode',
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 24.0),
-                  child: Text(
-                    'v1.0 © TonStudio',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                        itemBuilder: (context, index) {
+                          final card = _cards[index];
+                          final isActive = index == _currentIndex;
+                          final double scale = isActive ? 1.0 : 0.8;
+
+                          final double cardWidth =
+                              constraints.maxWidth *
+                              _pageController.viewportFraction;
+                          final double widthIncrease = cardWidth * 0.3;
+                          final double marginForNeighbor = widthIncrease / 2;
+
+                          EdgeInsets margin = const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 20,
+                          );
+
+                          if (index == _currentIndex - 1) {
+                            margin = margin.copyWith(
+                              right: margin.right + marginForNeighbor,
+                            );
+                          }
+
+                          if (index == _currentIndex + 1) {
+                            margin = margin.copyWith(
+                              left: margin.left + marginForNeighbor,
+                            );
+                          }
+
+                          return GestureDetector(
+                            onTap: () => _onCardTap(card),
+                            child: AnimatedContainer(
+                              margin: margin,
+                              transform: Matrix4.identity()..scale(scale),
+                              transformAlignment: Alignment.center,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage(card.imagePath),
+                                  fit: BoxFit.cover,
+                                  colorFilter: card.disabled
+                                      ? const ColorFilter.mode(
+                                          Colors.grey,
+                                          BlendMode.saturation,
+                                        )
+                                      : null,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  if (isActive)
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(76),
+                                      offset: const Offset(0, 8),
+                                      blurRadius: 12,
+                                    ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withAlpha(153),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      card.label,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: 'RobotoCondensed',
+                                        fontSize: isActive ? 20 : 16,
+                                        fontWeight: isActive
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Text(
+                        'Glissez ou utilisez les flèches pour choisir un mode',
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(204),
+                          shadows: const [
+                            Shadow(color: Colors.black, blurRadius: 2),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: Text(
+                        'v1.0 © TonStudio',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withAlpha(179),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -233,14 +305,20 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
 
 class _GameModeCard {
   final String label;
+  final String imageName;
   final GameMode? mode;
   final Difficulty? difficulty;
   final bool disabled;
 
   _GameModeCard({
     required this.label,
+    required this.imageName,
     this.mode,
     this.difficulty,
     this.disabled = false,
   });
+
+  String get imagePath {
+    return 'assets/images/$imageName';
+  }
 }
