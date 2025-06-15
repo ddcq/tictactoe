@@ -285,7 +285,7 @@ class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24.0),
                       child: Text(
-                        'v1.0 © TonStudio',
+                        'v1.0 © Denis declercq',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withAlpha(179),
